@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+
+  postgres:
+    image: "postgres:16.4"
+    container_name: "go8_postgres_e2e"
+    restart: "no"
+    healthcheck:
+      test: pg_isready -U ${DB_USER}
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+
+  server:
+    image: "go8/server_test"
+    container_name: "go8_server_e2e"
+    restart: "no"
+    build:
+      context: ../
+      dockerfile: e2e/server.Dockerfile
+    entrypoint: ["/usr/local/bin/server"]
+    depends_on:
+      - postgres
+      - migrate
+      - valkey
+
+  valkey:
+    image: 'valkey/valkey:7.2'
+    container_name: "go8_redis_e2e"
+    restart: "no"
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+
+  migrate:
+    image: "go8/migrate"
+    container_name: "go8_migrate_e2e"
+    restart: "no"
+    build:
+      context: ../
+      dockerfile: e2e/migrate.Dockerfile
+    entrypoint: ["/usr/local/bin/migrate"]
+    depends_on:
+      - postgres
+
+  e2e:
+    image: "go8/e2e"
+    container_name: "go8_e2e_test"
+    restart: "no"
+    build:
+      context: ../
+      dockerfile: e2e/e2e.Dockerfile
+    entrypoint: ["/usr/local/bin/end_to_end"]
+    depends_on:
+      - postgres
+      - migrate
+      - server
